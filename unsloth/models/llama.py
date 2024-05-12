@@ -424,8 +424,9 @@ def LlamaDecoderLayer_fast_forward(
 
         # Clone the residual Tensor to prevent it from being modified inplace
         residual_clone = residual.clone()
+        hidden_states_clone = hidden_states.clone()
         # Perform the inplace addition on the hidden_states Tensor
-        hidden_states += residual_clone
+        hidden_states = hidden_states_clone + residual_clone
 
 
         # Fully Connected
@@ -436,8 +437,9 @@ def LlamaDecoderLayer_fast_forward(
 
         # Clone the residual Tensor to prevent it from being modified inplace
         residual_clone = residual.clone()
+        hidden_states_clone = hidden_states.clone()
         # Perform the inplace addition on the hidden_states Tensor
-        hidden_states += residual_clone
+        hidden_states = hidden_states_clone + residual_clone
     else:
         residual = hidden_states
         hidden_states = fast_rms_layernorm(self.input_layernorm, hidden_states)
