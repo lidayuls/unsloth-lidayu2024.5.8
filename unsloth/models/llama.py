@@ -420,13 +420,24 @@ def LlamaDecoderLayer_fast_forward(
             use_cache=use_cache,
             padding_mask=padding_mask,
         )
-        hidden_states += residual
+        # hidden_states += residual
+
+        # Clone the residual Tensor to prevent it from being modified inplace
+        residual_clone = residual.clone()
+        # Perform the inplace addition on the hidden_states Tensor
+        hidden_states += residual_clone
+
 
         # Fully Connected
         residual = hidden_states
         hidden_states = fast_rms_layernorm_inference(self.post_attention_layernorm, hidden_states)
         hidden_states = fast_swiglu_inference(self.mlp, hidden_states)
-        hidden_states += residual
+        # hidden_states += residual
+
+        # Clone the residual Tensor to prevent it from being modified inplace
+        residual_clone = residual.clone()
+        # Perform the inplace addition on the hidden_states Tensor
+        hidden_states += residual_clone
     else:
         residual = hidden_states
         hidden_states = fast_rms_layernorm(self.input_layernorm, hidden_states)
