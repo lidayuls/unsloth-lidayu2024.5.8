@@ -997,7 +997,7 @@ def _wrap_fast_forward(forward, device_type, dtype):
     def _fast_forward(*args, **kwargs):
         with torch.autocast(device_type = device_type, dtype = dtype):
             return forward(*args, **kwargs)
-    return _fast_generate
+    return _fast_forward
 pass
 
 
