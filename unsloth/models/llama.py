@@ -1806,7 +1806,7 @@ class FastLlamaModel:
         # Wrap model.generate
         model._unwrapped_old_generate = model.generate
         model.generate = _wrap_fast_inference(model.generate, device_type, dtype)
-        model.forward = _wrap_fast_forward(model.generate, device_type, dtype)
+        model.forward = _wrap_fast_forward(model.forward, device_type, dtype)
 
 
 
