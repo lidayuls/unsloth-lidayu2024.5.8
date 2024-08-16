@@ -461,7 +461,6 @@ def LlamaDecoderLayer_fast_forward(
         hidden_states = fast_rms_layernorm_inference(self.post_attention_layernorm, hidden_states)
         hidden_states = fast_swiglu_inference(self.mlp, hidden_states)
         hidden_states += residual
-    
     else:
         residual = hidden_states
         hidden_states = fast_rms_layernorm(self.input_layernorm, hidden_states)
@@ -1239,47 +1238,47 @@ def _wrap_fast_forward(forward, device_type, dtype, model):
     @torch.inference_mode
     def _fast_forward(*args, **kwargs):
 
-        # Set a flag for generation!
-        internal_model = model
-        while hasattr(internal_model, "model"):
-            internal_model._flag_for_generation = True
-            internal_model = internal_model.model
-        pass
-        internal_model._flag_for_generation = True
+        # # Set a flag for generation!
+        # internal_model = model
+        # while hasattr(internal_model, "model"):
+        #     internal_model._flag_for_generation = True
+        #     internal_model = internal_model.model
+        # pass
+        # internal_model._flag_for_generation = True
 
-        # For newer HF
-        kwargs["cache_implementation"] = "dynamic"
+        # # For newer HF
+        # kwargs["cache_implementation"] = "dynamic"
 
-        # Remove token_type_ids
-        kwargs.pop("token_type_ids", None)
+        # # Remove token_type_ids
+        # kwargs.pop("token_type_ids", None)
 
-        # Check pad_token
-        model_eos_token_id = getattr(model.config, "eos_token_id", None)
-        if model_eos_token_id is not None and hasattr(model_eos_token_id, "__iter__"):
-            model_eos_token_id = model_eos_token_id[0]
+        # # Check pad_token
+        # model_eos_token_id = getattr(model.config, "eos_token_id", None)
+        # if model_eos_token_id is not None and hasattr(model_eos_token_id, "__iter__"):
+        #     model_eos_token_id = model_eos_token_id[0]
 
-        kwargs["pad_token_id"] = kwargs.pop("pad_token_id", model_eos_token_id)
+        # kwargs["pad_token_id"] = kwargs.pop("pad_token_id", model_eos_token_id)
 
-        # Set pad token
-        # old_pad_token_id = getattr(model.config, "pad_token_id", None)
-        # old_eos_token_id = getattr(model.config, "eos_token_id", None)
-        # model.config.pad_token_id = old_eos_token_id
+        # # Set pad token
+        # # old_pad_token_id = getattr(model.config, "pad_token_id", None)
+        # # old_eos_token_id = getattr(model.config, "eos_token_id", None)
+        # # model.config.pad_token_id = old_eos_token_id
 
         # Autocasted
         with torch.autocast(device_type = device_type, dtype = dtype):
             output = forward(*args, **kwargs)
         pass
 
-        # Revert
-        # model.config.pad_token_id = old_pad_token_id
+        # # Revert
+        # # model.config.pad_token_id = old_pad_token_id
 
-        # Unset a flag for generation!
-        internal_model = model
-        while hasattr(internal_model, "model"):
-            if hasattr(internal_model, "_flag_for_generation"): del internal_model._flag_for_generation
-            internal_model = internal_model.model
-        pass
-        if hasattr(internal_model, "_flag_for_generation"): del internal_model._flag_for_generation
+        # # Unset a flag for generation!
+        # internal_model = model
+        # while hasattr(internal_model, "model"):
+        #     if hasattr(internal_model, "_flag_for_generation"): del internal_model._flag_for_generation
+        #     internal_model = internal_model.model
+        # pass
+        # if hasattr(internal_model, "_flag_for_generation"): del internal_model._flag_for_generation
 
         return output
     pass
