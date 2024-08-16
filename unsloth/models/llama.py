@@ -454,34 +454,13 @@ def LlamaDecoderLayer_fast_forward(
             use_cache=use_cache,
             padding_mask=padding_mask,
         )
-        # hidden_states += residual
+        hidden_states += residual
 
-        # # Fully Connected
-        # residual = hidden_states
-        # hidden_states = fast_rms_layernorm_inference(self.post_attention_layernorm, hidden_states)
-        # hidden_states = fast_swiglu_inference(self.mlp, hidden_states)
-        # hidden_states += residual
-
-
-
-        
-        # hidden_states += residual
-        # Clone the residual Tensor to prevent it from being modified inplace
-        residual_clone = residual.clone()
-        hidden_states_clone = hidden_states.clone()
-        # Perform the inplace addition on the hidden_states Tensor
-        hidden_states = hidden_states_clone + residual_clone
         # Fully Connected
         residual = hidden_states
         hidden_states = fast_rms_layernorm_inference(self.post_attention_layernorm, hidden_states)
         hidden_states = fast_swiglu_inference(self.mlp, hidden_states)
-        # hidden_states += residual
-        # Clone the residual Tensor to prevent it from being modified inplace
-        residual_clone = residual.clone()
-        hidden_states_clone = hidden_states.clone()
-        # Perform the inplace addition on the hidden_states Tensor
-        hidden_states = hidden_states_clone + residual_clone
-
+        hidden_states += residual
     
     else:
         residual = hidden_states
@@ -1252,6 +1231,62 @@ def _wrap_fast_inference(generate, device_type, dtype, model):
     pass
     return _fast_generate
 pass
+
+
+# 自己增加的，为了防止输出向量时内存异常占用和溢出
+def _wrap_fast_forward(forward, device_type, dtype, model):
+    # Wraps inference with bfloat16 / float16
+    @torch.inference_mode
+    def _fast_forward(*args, **kwargs):
+
+        # Set a flag for generation!
+        internal_model = model
+        while hasattr(internal_model, "model"):
+            internal_model._flag_for_generation = True
+            internal_model = internal_model.model
+        pass
+        internal_model._flag_for_generation = True
+
+        # For newer HF
+        kwargs["cache_implementation"] = "dynamic"
+
+        # Remove token_type_ids
+        kwargs.pop("token_type_ids", None)
+
+        # Check pad_token
+        model_eos_token_id = getattr(model.config, "eos_token_id", None)
+        if model_eos_token_id is not None and hasattr(model_eos_token_id, "__iter__"):
+            model_eos_token_id = model_eos_token_id[0]
+
+        kwargs["pad_token_id"] = kwargs.pop("pad_token_id", model_eos_token_id)
+
+        # Set pad token
+        # old_pad_token_id = getattr(model.config, "pad_token_id", None)
+        # old_eos_token_id = getattr(model.config, "eos_token_id", None)
+        # model.config.pad_token_id = old_eos_token_id
+
+        # Autocasted
+        with torch.autocast(device_type = device_type, dtype = dtype):
+            output = forward(*args, **kwargs)
+        pass
+
+        # Revert
+        # model.config.pad_token_id = old_pad_token_id
+
+        # Unset a flag for generation!
+        internal_model = model
+        while hasattr(internal_model, "model"):
+            if hasattr(internal_model, "_flag_for_generation"): del internal_model._flag_for_generation
+            internal_model = internal_model.model
+        pass
+        if hasattr(internal_model, "_flag_for_generation"): del internal_model._flag_for_generation
+
+        return output
+    pass
+    return _fast_forward
+pass
+
+
 
 
 class FastLlamaModel:
@@ -2276,6 +2311,11 @@ class FastLlamaModel:
             model._unwrapped_old_generate = model.generate
             model.generate = _wrap_fast_inference(model.generate, device_type, dtype, model)
         pass
+
+        # 自己增加的，为了防止输出向量时内存异常占用和溢出
+        model.forward = _wrap_fast_forward(model.forward, device_type, dtype, model)
+
+
         
         # Patch tokenizer to pad to the left
         internal_model = model
