@@ -1486,13 +1486,13 @@ pass
 
 
 # 自己增加修改的，通过增加forward函数（原代码中没有），将forward函数缩小到float16，防止输出向量时内存异常占用和溢出
-def _wrap_fast_forward(forward, device_type, dtype, model):
+def _wrap_fast_forward(my_forward, device_type, dtype, model):
     # Wraps forward with bfloat16 / float16
     @torch.inference_mode
     def _fast_forward(*args, **kwargs):
         # Autocasted
         with torch.autocast(device_type = device_type, dtype = dtype):
-            output = forward(*args, **kwargs)
+            output = my_forward(*args, **kwargs)
         pass
         return output
     pass
@@ -2479,7 +2479,7 @@ class FastLlamaModel:
         pass
         
         # 自己增加修改的，通过增加forward函数（原代码中没有），将forward函数缩小到float16，防止输出向量时内存异常占用和溢出
-        model.forward = _wrap_fast_forward(model.forward, device_type, dtype, model)
+        model.my_forward = _wrap_fast_forward(model.forward, device_type, dtype, model)
 
         # Patch tokenizer to pad to the left
         internal_model = model
