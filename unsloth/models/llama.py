@@ -1526,6 +1526,26 @@ def _wrap_fast_inference(generate, device_type, dtype, model):
 pass
 
 
+
+
+# 自己增加修改的，通过增加forward函数（原代码中没有），将forward函数缩小到float16，防止输出向量时内存异常占用和溢出
+def _wrap_fast_forward(my_forward, device_type, dtype, model):
+    # Wraps forward with bfloat16 / float16
+    @torch.inference_mode
+    def _fast_forward(*args, **kwargs):
+        # Autocasted
+        with torch.autocast(device_type = device_type, dtype = dtype):
+            output = my_forward(*args, **kwargs)
+        pass
+        return output
+    pass
+    return _fast_forward
+pass
+
+
+
+
+
 class FastLlamaModel:
 
     @staticmethod
@@ -2537,6 +2557,11 @@ class FastLlamaModel:
             model._unwrapped_old_generate = model.generate
             model.generate = _wrap_fast_inference(model.generate, device_type, dtype, model)
         pass
+
+
+        # 自己增加修改的，通过增加forward函数（原代码中没有），将forward函数缩小到float16，防止输出向量时内存异常占用和溢出
+        model.my_forward = _wrap_fast_forward(model.forward, device_type, dtype, model)
+
         
         # Patch tokenizer to pad to the left
         internal_model = model
